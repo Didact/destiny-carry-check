@@ -436,11 +436,14 @@ func main() {
 
 	carryChecks := []*CarryCondition{eloBased, kdrBased}
 
-	total := 0
+	totalCarries := 0
+	totalGames := 0
 
 	for _, characterID := range characterIDs {
 		r := GetActivityHistory(2, accountID, characterID, *count, 0, "TrialsOfOsiris")
-		for _, a := range r.Response.Data.Activities {
+		as := r.Response.Data.Activities
+		totalGames += len(as)
+		for _, a := range as {
 			myStanding := a.Values.Standing.Basic.Value
 			pgcr := GetPGCR(a.ActivityDetails.InstanceID)
 			players := pgcr.Response.Data.Entries
@@ -460,7 +463,7 @@ func main() {
 					fmt.Fprintf(w, "maybe a carry based on %s\n", condition.Name)
 				}
 				if any {
-					total += 1
+					totalCarries += 1
 				}
 			}
 			fmt.Fprintln(w, "---")
@@ -468,6 +471,7 @@ func main() {
 		}
 	}
 	fmt.Fprintln(w)
-	fmt.Fprintf(w, "total potential carries: %d\n", total)
+	fmt.Fprintf(w, "total games:\t%d\n", totalGames)
+	fmt.Fprintf(w, "total potential carries:\t%d\n", totalCarries)
 	w.Flush()
 }
