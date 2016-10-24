@@ -76,6 +76,20 @@ var (
 
 		return (max - min) >= 1
 	}}
+	lhBased = &CarryCondition{"lh", func(ps []*PlayerStats) bool {
+		under5 := false
+		over20 := false
+
+		for _, p := range ps {
+			if p.Flawless <= 5 {
+				under5 = true
+			}
+			if p.Flawless >= 20 {
+				over20 = true
+			}
+		}
+		return under5 && over20
+	}}
 )
 
 type ActivityHistoryResponse struct {
@@ -434,7 +448,7 @@ func main() {
 
 	w := tabwriter.NewWriter(os.Stdout, 4, 8, 1, ' ', 0)
 
-	carryChecks := []*CarryCondition{eloBased, kdrBased}
+	carryChecks := []*CarryCondition{eloBased, kdrBased, lhBased}
 
 	totalCarries := 0
 	totalGames := 0
