@@ -123,16 +123,16 @@ func GetActivityHistory(console int, accountID string, characterID string, count
 	url := fmt.Sprintf(baseURL, console, accountID, characterID, page, count, mode)
 	resp, err := client.Get(url)
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
 	}
 	if resp.Body == nil {
-		log.Fatal(errors.New("nil body"))
+		log.Println(errors.New("nil body"))
 	}
 	defer resp.Body.Close()
 	r := &ActivityHistoryResponse{}
 	err = json.NewDecoder(resp.Body).Decode(r)
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
 	}
 	return r
 }
@@ -194,16 +194,16 @@ func GetPGCR(activityID string) *PGCRResponse {
 	url := fmt.Sprintf(baseURL, activityID)
 	resp, err := client.Get(url)
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
 	}
 	if resp.Body == nil {
-		log.Fatal(errors.New("nil body"))
+		log.Println(errors.New("nil body"))
 	}
 	defer resp.Body.Close()
 	s := &PGCRResponse{}
 	err = json.NewDecoder(resp.Body).Decode(s)
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
 	}
 	return s
 }
@@ -234,16 +234,16 @@ func GetGuardianGGInfo(accountID string) *GuardianGGResponse {
 	url := fmt.Sprintf(baseURL, accountID)
 	resp, err := http.Get(url)
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
 	}
 	if resp.Body == nil {
-		log.Fatal(errors.New("nil body"))
+		log.Println(errors.New("nil body"))
 	}
 	defer resp.Body.Close()
 	s := &GuardianGGResponse{}
 	err = json.NewDecoder(resp.Body).Decode(s)
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
 	}
 	return s
 }
@@ -278,10 +278,10 @@ func GetDTRInfo(accountID string) *DTRResponse {
 	url := fmt.Sprintf(baseURL, accountID)
 	resp, err := client.Get(url)
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
 	}
 	if resp.Body == nil {
-		log.Fatal(errors.New("nil body"))
+		log.Println(errors.New("nil body"))
 	}
 	defer resp.Body.Close()
 
@@ -301,10 +301,10 @@ func GetTotalTrialsGames(accountID string) int {
 		url := fmt.Sprintf(baseURL, accountID, c)
 		resp, err := client.Get(url)
 		if err != nil {
-			log.Fatal(err)
+			log.Println(err)
 		}
 		if resp.Body == nil {
-			log.Fatal(errors.New("nil body"))
+			log.Println(errors.New("nil body"))
 		}
 		defer resp.Body.Close()
 
@@ -326,7 +326,7 @@ func GetTotalTrialsGames(accountID string) int {
 
 		err = json.NewDecoder(resp.Body).Decode(&s)
 		if err != nil {
-			log.Fatal(err)
+			log.Println(err)
 		}
 		total += int(s.Response.TrialsOfOsiris.AllTime.ActivitiesEntered.Basic.Value)
 	}
@@ -338,10 +338,10 @@ func GetAccountIDForGamertag(gamertag, platform string) string {
 	url := fmt.Sprintf(baseURL, platform, gamertag)
 	resp, err := client.Get(url)
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
 	}
 	if resp.Body == nil {
-		log.Fatal(errors.New("nil body"))
+		log.Println(errors.New("nil body"))
 	}
 	defer resp.Body.Close()
 	var s struct {
@@ -356,7 +356,7 @@ func GetAccountIDForGamertag(gamertag, platform string) string {
 
 	err = json.NewDecoder(resp.Body).Decode(&s)
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
 	}
 	return s.Response[0].MembershipID
 }
@@ -366,10 +366,10 @@ func GetCharacterIDsForAccount(accountID string, platform string) []string {
 	url := fmt.Sprintf(baseURL, platform, accountID)
 	resp, err := client.Get(url)
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
 	}
 	if resp.Body == nil {
-		log.Fatal(errors.New("nil body"))
+		log.Println(errors.New("nil body"))
 	}
 	defer resp.Body.Close()
 
@@ -388,7 +388,7 @@ func GetCharacterIDsForAccount(accountID string, platform string) []string {
 	}
 	err = json.NewDecoder(resp.Body).Decode(&s)
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
 	}
 	characters := make([]string, len(s.Response.Data.Characters))
 	for i, c := range s.Response.Data.Characters {
