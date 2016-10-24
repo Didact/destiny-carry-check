@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -278,7 +279,7 @@ type DTRResponse struct {
 				Count int
 			}
 		}
-	}
+	} `json:"-"`
 	ThisWeek []struct {
 		Matches string
 		Losses  string
@@ -299,12 +300,20 @@ func GetDTRInfo(accountID string) *DTRResponse {
 	}
 	defer resp.Body.Close()
 
-	dtr := []*DTRResponse{&DTRResponse{}}
-	err = json.NewDecoder(resp.Body).Decode(&dtr)
+	type adapter struct {
+		DTRResponse
+		Flawless json.RawMessage
+	}
+
+	a := []*adapter{&adapter{DTRResponse{}, json.RawMessage{}}}
+	err = json.NewDecoder(resp.Body).Decode(&a)
 	if err != nil {
 		log.Println(err)
 	}
-	return dtr[0]
+	if bytes.Compare([]byte(a[0].Flawless), []byte("[]")) != 0 {
+		json.Unmarshal(a[0].Flawless, &a[0].DTRResponse.Flawless)
+	}
+	return &(a[0].DTRResponse)
 }
 
 func GetTotalTrialsGames(accountID string) int {
@@ -366,6 +375,9 @@ func GetAccountIDForGamertag(gamertag, platform string) string {
 		}
 		ErrorCode   int
 		ErrorStatus string
+	}
+
+	type w struct {
 	}
 
 	err = json.NewDecoder(resp.Body).Decode(&s)
