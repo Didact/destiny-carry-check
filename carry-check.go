@@ -6,6 +6,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -93,37 +94,39 @@ var (
 	}}
 )
 
+type Activity struct {
+	Period          time.Time
+	ActivityDetails struct {
+		ReferenceID              int
+		InstanceID               string
+		Mode                     int
+		ActivityTypeHashOverride int
+		IsPrivate                bool
+	}
+
+	Values struct {
+		// whole bunch of other stuff here that I don't care about
+		Completed struct {
+			StatID string
+			Basic  struct {
+				Value        float64
+				DisplayValue string
+			}
+		}
+		Standing struct {
+			StatID string
+			Basic  struct {
+				Value        float64
+				DisplayValue string
+			}
+		}
+	}
+}
+
 type ActivityHistoryResponse struct {
 	Response struct {
 		Data struct {
-			Activities []struct {
-				Period          time.Time
-				ActivityDetails struct {
-					ReferenceID              int
-					InstanceID               string
-					Mode                     int
-					ActivityTypeHashOverride int
-					IsPrivate                bool
-				}
-
-				Values struct {
-					// whole bunch of other stuff here that I don't care about
-					Completed struct {
-						StatID string
-						Basic  struct {
-							Value        float64
-							DisplayValue string
-						}
-					}
-					Standing struct {
-						StatID string
-						Basic  struct {
-							Value        float64
-							DisplayValue string
-						}
-					}
-				}
-			}
+			Activities []Activity
 		}
 	}
 	ErrorCode       int
@@ -299,6 +302,9 @@ func GetDTRInfo(accountID string) *DTRResponse {
 		log.Println(errors.New("nil body"))
 	}
 	defer resp.Body.Close()
+	b := &bytes.Buffer{}
+
+	tee := io.TeeReader(resp.Body, b)
 
 	type adapter struct {
 		DTRResponse
@@ -306,9 +312,10 @@ func GetDTRInfo(accountID string) *DTRResponse {
 	}
 
 	a := []*adapter{&adapter{DTRResponse{}, json.RawMessage{}}}
-	err = json.NewDecoder(resp.Body).Decode(&a)
+	err = json.NewDecoder(tee).Decode(&a)
 	if err != nil {
 		log.Println(err)
+		log.Println(b.String())
 	}
 	if bytes.Compare([]byte(a[0].Flawless), []byte("[]")) != 0 {
 		json.Unmarshal(a[0].Flawless, &a[0].DTRResponse.Flawless)
@@ -448,15 +455,29 @@ func GetStatsForPlayer(accountID string) *PlayerStats {
 	return ps
 }
 
-func main() {
-	cache = make(map[string]*PlayerStats)
-
-	flag.Parse()
-
-	client = http.Client{Transport: &apiTransport{apiKey: *apiKey}}
-
-	accountID := GetAccountIDForGamertag(*gamertag, "2")
+func GetTrialsGamesForGamertag(gamertag string, count int) []*Activity {
+	accountID := GetAccountIDForGamertag(gamertag, "2")
 	characterIDs := GetCharacterIDsForAccount(accountID, "2")
+
+	var as []*Activity
+
+	for _, characterID := range characterIDs {
+		r := GetActivityHistory(2, accountID, characterID, count, 0, "TrialsOfOsiris")
+		//TODO: less allocations
+		for i := range r.Response.Data.Activities {
+			as = append(as, &r.Response.Data.Activities[i])
+		}
+	}
+	return as
+}
+
+func init() {
+	flag.Parse()
+	cache = make(map[string]*PlayerStats)
+	client = http.Client{Transport: &apiTransport{apiKey: *apiKey}}
+}
+
+func main() {
 
 	w := tabwriter.NewWriter(os.Stdout, 4, 8, 1, ' ', 0)
 
@@ -465,37 +486,36 @@ func main() {
 	totalCarries := 0
 	totalGames := 0
 
-	for _, characterID := range characterIDs {
-		r := GetActivityHistory(2, accountID, characterID, *count, 0, "TrialsOfOsiris")
-		as := r.Response.Data.Activities
-		totalGames += len(as)
-		for _, a := range as {
-			myStanding := a.Values.Standing.Basic.Value
-			pgcr := GetPGCR(a.ActivityDetails.InstanceID)
-			players := pgcr.Response.Data.Entries
-			var stats []*PlayerStats
-			for _, player := range players {
-				// only check people on the other team
-				if player.Standing != myStanding {
-					stat := GetStatsForPlayer(player.Player.DestinyUserInfo.MembershipID)
-					stats = append(stats, stat)
-					fmt.Fprintf(w, "%s\n", stat)
-				}
-			}
-			for _, condition := range carryChecks {
-				any := false
-				if condition.Func(stats) {
-					any = true
-					fmt.Fprintf(w, "maybe a carry based on %s\n", condition.Name)
-				}
-				if any {
-					totalCarries += 1
-				}
-			}
-			fmt.Fprintln(w, "---")
+	as := GetTrialsGamesForGamertag(*gamertag, *count)
+	totalGames := len(as)
 
+	for _, a := range as {
+		myStanding := a.Values.Standing.Basic.Value
+		pgcr := GetPGCR(a.ActivityDetails.InstanceID)
+		players := pgcr.Response.Data.Entries
+		var stats []*PlayerStats
+		for _, player := range players {
+			// only check people on the other team
+			if player.Standing != myStanding {
+				stat := GetStatsForPlayer(player.Player.DestinyUserInfo.MembershipID)
+				stats = append(stats, stat)
+				fmt.Fprintf(w, "%s\n", stat)
+			}
 		}
+		for _, condition := range carryChecks {
+			any := false
+			if condition.Func(stats) {
+				any = true
+				fmt.Fprintf(w, "maybe a carry based on %s\n", condition.Name)
+			}
+			if any {
+				totalCarries += 1
+			}
+		}
+		fmt.Fprintln(w, "---")
+
 	}
+
 	fmt.Fprintln(w)
 	fmt.Fprintf(w, "total games:\t%d\n", totalGames)
 	fmt.Fprintf(w, "total potential carries:\t%d\n", totalCarries)
