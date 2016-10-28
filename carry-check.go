@@ -10,6 +10,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"sync"
 	"text/tabwriter"
 	"time"
 )
@@ -487,21 +488,35 @@ func main() {
 	totalGames := 0
 
 	as := GetTrialsGamesForGamertag(*gamertag, *count)
-	totalGames := len(as)
+	totalGames = len(as)
 
 	for _, a := range as {
 		myStanding := a.Values.Standing.Basic.Value
 		pgcr := GetPGCR(a.ActivityDetails.InstanceID)
 		players := pgcr.Response.Data.Entries
 		var stats []*PlayerStats
+		statchan := make(chan *PlayerStats, 3)
+		go func() {
+			for s := range statchan {
+				stats = append(stats, s)
+			}
+		}()
+		wg := &sync.WaitGroup{}
 		for _, player := range players {
 			// only check people on the other team
 			if player.Standing != myStanding {
-				stat := GetStatsForPlayer(player.Player.DestinyUserInfo.MembershipID)
-				stats = append(stats, stat)
-				fmt.Fprintf(w, "%s\n", stat)
+				wg.Add(1)
+				player := player
+				go func() {
+					stat := GetStatsForPlayer(player.Player.DestinyUserInfo.MembershipID)
+					statchan <- stat
+					fmt.Fprintf(w, "%s\n", stat)
+					wg.Done()
+				}()
 			}
 		}
+		wg.Wait()
+		close(statchan)
 		for _, condition := range carryChecks {
 			any := false
 			if condition.Func(stats) {
