@@ -461,14 +461,31 @@ func GetTrialsGamesForGamertag(gamertag string, count int) []*Activity {
 	characterIDs := GetCharacterIDsForAccount(accountID, "2")
 
 	var as []*Activity
+	wg := &sync.WaitGroup{}
+	activityChan := make(chan []*Activity, len(characterIDs))
+
+	go func() {
+		for a := range activityChan {
+			as = append(as, a...)
+		}
+	}()
 
 	for _, characterID := range characterIDs {
-		r := GetActivityHistory(2, accountID, characterID, count, 0, "TrialsOfOsiris")
-		//TODO: less allocations
-		for i := range r.Response.Data.Activities {
-			as = append(as, &r.Response.Data.Activities[i])
-		}
+		id := characterID
+		wg.Add(1)
+		go func() {
+			r := GetActivityHistory(2, accountID, id, count, 0, "TrialsOfOsiris")
+			as := []*Activity{}
+			//TODO: less allocations
+			for i := range r.Response.Data.Activities {
+				as = append(as, &r.Response.Data.Activities[i])
+			}
+			activityChan <- as
+			wg.Done()
+		}()
 	}
+	wg.Wait()
+	close(activityChan)
 	return as
 }
 
