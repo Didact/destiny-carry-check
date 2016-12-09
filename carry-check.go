@@ -10,12 +10,28 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 	"sync"
 	"text/tabwriter"
 	"time"
 )
 
 const TrialsOfOsiris = "14"
+
+type intOrString int
+
+func (i *intOrString) UnmarshalJSON(b []byte) error {
+	var p []byte
+	if b[0] == '"' {
+		p = b[1 : len(b)-1]
+	} else {
+		p = b
+	}
+
+	n, err := strconv.Atoi(string(p))
+	*i = intOrString(n)
+	return err
+}
 
 var client http.Client
 
@@ -285,10 +301,14 @@ type DTRResponse struct {
 		}
 	} `json:"-"`
 	ThisWeek []struct {
-		Matches string
-		Losses  string
-		Kills   string
-		Deaths  string
+		Matches intOrString //`json:"-"`
+		//_matches json.RawMessage `json:"matches"`
+		Losses intOrString //`json:"-"`
+		//_losses  json.RawMessage `json:"losses"`
+		Kills intOrString //`json:"-"`
+		//_kills   json.RawMessage `json:"kills"`
+		Deaths intOrString //`json:"-"`
+		//_deaths  json.RawMessage `json:"deaths"`
 	}
 }
 
@@ -321,6 +341,23 @@ func GetDTRInfo(accountID string) *DTRResponse {
 	if bytes.Compare([]byte(a[0].Flawless), []byte("[]")) != 0 {
 		json.Unmarshal(a[0].Flawless, &a[0].DTRResponse.Flawless)
 	}
+	/*
+		rawMatches := a[0].DTRResponse.ThisWeek._matches
+		if rawMatches[0] == '"' {
+			a[0].DTRResponse.ThisWeek.Matches, _ = strconv.Atoi(rawMatches[1 : len(rawMatches)-1])
+		} else {
+		}
+		if a[0].DTRResponse.ThisWeek._losses[0] == '"' {
+		} else {
+		}
+		if a[0].DTRResponse.ThisWeek._kills[0] == '"' {
+		} else {
+		}
+		if a[0].DTRResponse.ThisWeek._deaths[0] == '"' {
+		} else {
+		}
+	*/
+
 	return &(a[0].DTRResponse)
 }
 
